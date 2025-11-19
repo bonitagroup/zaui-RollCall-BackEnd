@@ -1,0 +1,1 @@
+{"version":3,"file":"location.service.d.ts","sourceRoot":"","sources":["../../src/services/location.service.ts"],"names":[],"mappings":"AAGA,MAAM,WAAW,YAAY;IAC3B,QAAQ,EAAE,MAAM,CAAC;IACjB,QAAQ,EAAE,MAAM,CAAC;IACjB,SAAS,EAAE,MAAM,CAAC;IAClB,SAAS,EAAE,MAAM,CAAC;CACnB;AAQD;;GAEG;AACH,wBAAsB,oBAAoB,CAAC,KAAK,EAAE,MAAM,GAAG,OAAO,CAAC,YAAY,CAAC,CAsB/E"}
