@@ -12,10 +12,6 @@ interface LocationResponse {
   timestamp: string;
 }
 
-/**
- * POST /api/location/convert-token
- * Convert Zalo location token to coordinates
- */
 export async function convertToken(req: Request, res: Response): Promise<void> {
   try {
     const { token, accessToken } = req.body;
@@ -25,7 +21,6 @@ export async function convertToken(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Truyền accessToken động vào service
     const locationData: LocationData = await convertLocationToken(token, accessToken);
 
     const response: LocationResponse = {

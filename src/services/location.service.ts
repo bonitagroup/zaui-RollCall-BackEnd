@@ -38,7 +38,6 @@ export async function convertLocationToken(
 
     return response.data.data;
   } catch (error: any) {
-    // Log lỗi chi tiết để kiểm tra nguyên nhân
     if (error.response) {
       console.error('Convert location token error (response):', error.response.data);
       throw new Error(error.response.data?.message || 'Failed to convert location token');

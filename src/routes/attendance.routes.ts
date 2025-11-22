@@ -18,5 +18,8 @@ export function createAttendanceRoutes(db: Pool): Router {
   // Xử lý Check-out
   router.post('/check-out', controller.checkOut);
 
+  router.get('/monthly-stats', controller.getMonthlyStats);
+  router.get('/history-paging', controller.getPaginatedHistory);
+
   return router;
 }

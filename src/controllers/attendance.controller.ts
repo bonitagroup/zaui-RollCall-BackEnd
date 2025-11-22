@@ -1,11 +1,8 @@
 import { Request, Response } from 'express';
 import { Pool } from 'mysql2/promise';
-/**
- * Lấy ngày YYYY-MM-DD an toàn theo múi giờ Việt Nam
- */
+
 const getTodayDateString = (): string => {
   const d = new Date();
-  // Dùng toLocaleString 'sv' (Thụy Điển) để có định dạng YYYY-MM-DD
   return d.toLocaleString('sv', { timeZone: 'Asia/Ho_Chi_Minh' }).slice(0, 10);
 };
 
@@ -15,7 +12,7 @@ export function createAttendanceController(db: Pool) {
     checkIn: async (req: Request, res: Response) => {
       try {
         const { zalo_id, shiftKey } = req.body;
-        const today = getTodayDateString(); // <-- Dùng hàm mới
+        const today = getTodayDateString();
         const now = new Date();
 
         if (!zalo_id || !shiftKey) {
@@ -49,7 +46,7 @@ export function createAttendanceController(db: Pool) {
     checkOut: async (req: Request, res: Response) => {
       try {
         const { zalo_id, shiftKey } = req.body;
-        const today = getTodayDateString(); // <-- Dùng hàm mới
+        const today = getTodayDateString();
         const now = new Date();
 
         if (!zalo_id || !shiftKey) {
@@ -83,7 +80,7 @@ export function createAttendanceController(db: Pool) {
     getToday: async (req: Request, res: Response) => {
       try {
         const { zalo_id } = req.query;
-        const today = getTodayDateString(); // <-- Dùng hàm mới
+        const today = getTodayDateString();
 
         if (!zalo_id) {
           return res.status(400).json({ error: 'zalo_id is required' });
@@ -109,7 +106,6 @@ export function createAttendanceController(db: Pool) {
         if (!zalo_id) {
           return res.status(400).json({ error: 'zalo_id is required' });
         }
-
         const [rows] = await db.query(
           'SELECT * FROM attendance_records WHERE zalo_id = ? ORDER BY `date` DESC',
           [String(zalo_id)]
@@ -118,6 +114,55 @@ export function createAttendanceController(db: Pool) {
         res.json({ success: true, data: rows });
       } catch (err: any) {
         console.error('Get history error:', err);
+        res.status(500).json({ success: false, error: err.message });
+      }
+    },
+
+    getMonthlyStats: async (req: Request, res: Response) => {
+      try {
+        const { zalo_id, month, year } = req.query;
+        if (!zalo_id || !month || !year) return res.status(400).json({ error: 'Missing params' });
+
+        const y = Number(year);
+        const m = Number(month);
+
+        const lastDay = new Date(y, m, 0).getDate();
+
+        const startDate = `${y}-${String(m).padStart(2, '0')}-01`;
+        const endDate = `${y}-${String(m).padStart(2, '0')}-${lastDay}`;
+
+        const [records]: any = await db.query(
+          'SELECT * FROM attendance_records WHERE zalo_id = ? AND `date` BETWEEN ? AND ?',
+          [zalo_id, startDate, endDate]
+        );
+
+        const [leaves]: any = await db.query(
+          'SELECT * FROM leave_requests WHERE zalo_id = ? AND status = "approved" AND ((start_date BETWEEN ? AND ?) OR (end_date BETWEEN ? AND ?))',
+          [zalo_id, startDate, endDate, startDate, endDate]
+        );
+
+        res.json({ success: true, data: { records, leaves } });
+      } catch (err: any) {
+        console.error('Get Monthly Stats Error:', err);
+        res.status(500).json({ success: false, error: err.message });
+      }
+    },
+
+    // 6. Lấy lịch sử phân trang
+    getPaginatedHistory: async (req: Request, res: Response) => {
+      try {
+        const { zalo_id, limit = 50, offset = 0 } = req.query;
+
+        if (!zalo_id) return res.status(400).json({ error: 'zalo_id is required' });
+
+        const [rows] = await db.query(
+          'SELECT * FROM attendance_records WHERE zalo_id = ? ORDER BY `date` DESC LIMIT ? OFFSET ?',
+          [zalo_id, Number(limit), Number(offset)]
+        );
+
+        res.json({ success: true, data: rows });
+      } catch (err: any) {
+        console.error('Get Paginated History Error:', err);
         res.status(500).json({ success: false, error: err.message });
       }
     },

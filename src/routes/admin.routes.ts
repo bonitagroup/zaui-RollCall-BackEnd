@@ -1,10 +1,6 @@
 import { Request, Response, Router, NextFunction } from 'express';
 import { Pool } from 'mysql2/promise';
 
-/**
- * Middleware bảo mật: Kiểm tra xem người gọi API có phải Admin không
- * Nó sẽ kiểm tra 'admin_zalo_id' được gửi kèm trong query
- */
 const isAdmin = (db: Pool) => async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin_zalo_id = req.query.admin_zalo_id as string | undefined;
@@ -17,7 +13,7 @@ const isAdmin = (db: Pool) => async (req: Request, res: Response, next: NextFunc
     const user = (rows as any[])[0];
 
     if (user && user.role === 'admin') {
-      next(); // Là admin, cho phép đi tiếp
+      next();
     } else {
       res.status(403).json({ success: false, error: 'Forbidden: You are not an admin' });
     }
@@ -26,18 +22,12 @@ const isAdmin = (db: Pool) => async (req: Request, res: Response, next: NextFunc
   }
 };
 
-/**
- * Tạo các routes cho Admin
- */
 export function createAdminRoutes(db: Pool): Router {
   const router = Router();
-  const checkAdmin = isAdmin(db); // Tạo middleware check Admin
+  const checkAdmin = isAdmin(db);
 
-  // [GET] /api/admin/users
-  // Lấy tất cả user để hiển thị trong trang quản lý
   router.get('/users', checkAdmin, async (req: Request, res: Response) => {
     try {
-      // Lấy tất cả user, sắp xếp theo role
       const [rows] = await db.query(
         'SELECT id, zalo_id, name, avatar_url, role FROM users ORDER BY role DESC, name ASC'
       );
@@ -48,9 +38,50 @@ export function createAdminRoutes(db: Pool): Router {
     }
   });
 
-  // Lưu ý: API để "Set Role" chúng ta sẽ dùng lại API cũ của bạn:
-  // [PUT] /api/user/profile
-  // Trang Admin mới sẽ gọi API này
+  router.get('/attendance-stats', checkAdmin, async (req: Request, res: Response) => {
+    try {
+      const { target_zalo_id, month } = req.query;
+      res.json({
+        success: true,
+        data: {
+          summary: {
+            actual_days: 18.99,
+            standard_days: 24,
+            late_times: 1,
+            leave_days: 1.99,
+          },
+          daily_records: [
+            {
+              date: '2024-03-11',
+              day_of_week: 'T6',
+              shifts: [
+                {
+                  name: 'Khung giờ 1',
+                  check_in_plan: '08:30',
+                  check_in_actual: '08:25',
+                  check_in_status: 'early',
+                  check_out_plan: '12:00',
+                  check_out_actual: '11:55',
+                  check_out_status: 'early',
+                },
+                {
+                  name: 'Khung giờ 2',
+                  check_in_plan: '13:00',
+                  check_in_actual: '13:00',
+                  check_in_status: 'on_time',
+                  check_out_plan: '18:00',
+                  check_out_actual: null,
+                  check_out_status: 'missing',
+                },
+              ],
+            },
+          ],
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
   return router;
 }
