@@ -6,6 +6,11 @@ import mysql, { Pool } from 'mysql2/promise';
 import { createAttendanceRoutes } from './routes/attendance.routes';
 import { createLocationRoutes } from './routes/location.routes';
 import { createAdminRoutes } from './routes/admin.routes';
+import { createTaskRoutes } from './routes/admin.routes';
+import { createLeaveRoutes } from './routes/leave.routes';
+import { createUserRoutes } from './routes/user.routes';
+import uploadRoutes from './routes/upload.routes';
+import path from 'path';
 
 const app: Express = express();
 app.use(bodyParser.json());
@@ -25,6 +30,7 @@ interface CorsOptions {
     callback: (err: Error | null, allow?: boolean) => void
   ) => void;
   credentials: boolean;
+  allowedHeaders?: string[]; // Thêm dòng này để TypeScript không báo lỗi
 }
 
 const corsOptions: CorsOptions = {
@@ -32,17 +38,21 @@ const corsOptions: CorsOptions = {
     origin: string | undefined,
     callback: (err: Error | null, allow?: boolean) => void
   ): void => {
+    // Cho phép request không có origin
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
+    // Cập nhật thêm các domain Tunnel phổ biến
     if (
       origin.includes('localhost') ||
       origin.includes('127.0.0.1') ||
       origin.endsWith('.ngrok-free.app') ||
-      origin.endsWith('.trycloudflare.com')
+      origin.endsWith('.trycloudflare.com') ||
+      origin.endsWith('.pinggy.link') ||
+      origin.endsWith('.lhr.life')
     ) {
       return callback(null, true);
     }
@@ -51,6 +61,17 @@ const corsOptions: CorsOptions = {
     callback(new Error('CORS not allowed'));
   },
   credentials: true,
+  // --- QUAN TRỌNG: Thêm dòng này để fix lỗi Ngrok ---
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'ngrok-skip-browser-warning',
+    'bypass-tunnel-reminder',
+    'X-Requested-With',
+    'access_token',
+    'code',
+    'secret_key',
+  ],
 };
 
 app.use(cors(corsOptions as any));
@@ -62,8 +83,10 @@ const db: Pool = mysql.createPool({
   database: process.env.DB_NAME || 'zalo_app',
   waitForConnections: true,
   connectionLimit: 10,
+  dateStrings: true,
 });
 
+// --- CODE CŨ CỦA BẠN (GIỮ NGUYÊN) ---
 app.post('/api/user/profile', async (req: Request, res: Response): Promise<void> => {
   const { zalo_id, name, avatar_url } = req.body;
   if (!zalo_id) {
@@ -122,12 +145,21 @@ app.put('/api/user/profile', async (req: Request, res: Response): Promise<void> 
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+app.use('/api/files', express.static(path.join(process.cwd(), 'uploads')));
+
+// 2. Các API Routes
 app.use('/api/attendance', createAttendanceRoutes(db));
 app.use('/api/location', createLocationRoutes());
-
 app.use('/api/admin', createAdminRoutes(db));
+app.use('/api/admin/task', createTaskRoutes(db));
+app.use('/api/leave-requests', createLeaveRoutes(db));
+app.use('/api/users', createUserRoutes(db));
+
+app.use('/api', uploadRoutes);
 
 const PORT: number = parseInt(process.env.PORT || '3001', 10);
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);
+  console.log('📂 Serving uploads from:', path.join(process.cwd(), 'uploads'));
 });

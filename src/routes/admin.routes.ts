@@ -1,9 +1,11 @@
 import { Request, Response, Router, NextFunction } from 'express';
 import { Pool } from 'mysql2/promise';
+import { createTaskController } from '../controllers/task.controller';
+import { createSalaryController } from '../controllers/salary.controller';
 
 const isAdmin = (db: Pool) => async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const admin_zalo_id = req.query.admin_zalo_id as string | undefined;
+    const admin_zalo_id = (req.query.admin_zalo_id as string) || req.body.zalo_id;
 
     if (!admin_zalo_id) {
       return res.status(401).json({ success: false, error: 'admin_zalo_id is required' });
@@ -25,7 +27,9 @@ const isAdmin = (db: Pool) => async (req: Request, res: Response, next: NextFunc
 export function createAdminRoutes(db: Pool): Router {
   const router = Router();
   const checkAdmin = isAdmin(db);
+  const salaryController = createSalaryController(db);
 
+  // API lấy danh sách nhân sự
   router.get('/users', checkAdmin, async (req: Request, res: Response) => {
     try {
       const [rows] = await db.query(
@@ -38,50 +42,26 @@ export function createAdminRoutes(db: Pool): Router {
     }
   });
 
-  router.get('/attendance-stats', checkAdmin, async (req: Request, res: Response) => {
-    try {
-      const { target_zalo_id, month } = req.query;
-      res.json({
-        success: true,
-        data: {
-          summary: {
-            actual_days: 18.99,
-            standard_days: 24,
-            late_times: 1,
-            leave_days: 1.99,
-          },
-          daily_records: [
-            {
-              date: '2024-03-11',
-              day_of_week: 'T6',
-              shifts: [
-                {
-                  name: 'Khung giờ 1',
-                  check_in_plan: '08:30',
-                  check_in_actual: '08:25',
-                  check_in_status: 'early',
-                  check_out_plan: '12:00',
-                  check_out_actual: '11:55',
-                  check_out_status: 'early',
-                },
-                {
-                  name: 'Khung giờ 2',
-                  check_in_plan: '13:00',
-                  check_in_actual: '13:00',
-                  check_in_status: 'on_time',
-                  check_out_plan: '18:00',
-                  check_out_actual: null,
-                  check_out_status: 'missing',
-                },
-              ],
-            },
-          ],
-        },
-      });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
+  // API Lương: Lấy bảng lương
+  router.get('/salary-stats', checkAdmin, salaryController.getSalaryStats);
+
+  // API Lương: Thêm thưởng/phạt thủ công
+  router.post('/salary-adjust', checkAdmin, salaryController.addAdjustment);
+  router.delete('/salary-adjust/:id', checkAdmin, salaryController.deleteAdjustment);
+
+  return router;
+}
+
+export function createTaskRoutes(db: Pool): Router {
+  const router = Router();
+  const controller = createTaskController(db);
+
+  // Các API Task
+  router.get('/employees', controller.getEmpStatus);
+  router.get('/list', controller.getTasks);
+  router.post('/create', controller.createTask);
+  router.put('/update', controller.updateStatus);
+  router.delete('/delete', controller.deleteTask);
 
   return router;
 }
